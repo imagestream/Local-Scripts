@@ -1,0 +1,61 @@
+#!/bin/bash
+# simple script to scrap some of the Ceph tools and ship it up to Influxdb
+# This requires jq to be installed @ /usr/bin/jq
+
+/usr/bin/ceph df     --format=json > /tmp/ceph-df-json
+/usr/bin/ceph status --format=json > /tmp/ceph-status-json
+
+# Pass the hostname via the command line
+HOSTNAME=$1
+
+# These are the pool id's that I am going to collect metrics on 
+poolid=(1 2 3 4 5 6 7 8 )
+
+# Loop over the pool id to get per pool stats
+for i in ${poolid[@]}
+do
+	POOL_NAME=$(/usr/bin/jq -r ".pools[$i].name"               /tmp/ceph-df-json)
+	CEPH_ID=$(/usr/bin/jq      ".pools[$i].id"                 /tmp/ceph-df-json)
+	BYTES_USED=$(/usr/bin/jq   ".pools[$i].stats.bytes_used"   /tmp/ceph-df-json)
+	MAX_AVAIL=$(/usr/bin/jq    ".pools[$i].stats.max_avail"    /tmp/ceph-df-json)
+	PERC_USED=$(/usr/bin/jq    ".pools[$i].stats.percent_used" /tmp/ceph-df-json)
+	NUM_OBJECTS=$(/usr/bin/jq  ".pools[$i].stats.objects"      /tmp/ceph-df-json)
+	KB_USED=$(/usr/bin/jq      ".pools[$i].stats.kb_used"      /tmp/ceph-df-json)
+
+	echo "ceph_bytes_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$BYTES_USED"  >> /tmp/ceph_influx_write
+	echo "ceph_max_avail,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$MAX_AVAIL"    >> /tmp/ceph_influx_write
+	echo "ceph_percent_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$PERC_USED" >> /tmp/ceph_influx_write
+	echo "ceph_objects,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$NUM_OBJECTS"    >> /tmp/ceph_influx_write
+	echo "ceph_kb_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$KB_USED"        >> /tmp/ceph_influx_write
+done
+
+# Read system wide performance stats
+SYS_OBJECTS=$(/usr/bin/jq  ".pgmap.num_objects"      /tmp/ceph-status-json)
+DATA_BYTES=$(/usr/bin/jq   ".pgmap.data_bytes"       /tmp/ceph-status-json)
+BYTES_USED=$(/usr/bin/jq   ".pgmap.bytes_used"       /tmp/ceph-status-json)
+BYTES_AVAIL=$(/usr/bin/jq  ".pgmap.bytes_avail"      /tmp/ceph-status-json)
+BYTES_TOTAL=$(/usr/bin/jq  ".pgmap.bytes_total"      /tmp/ceph-status-json)
+READ_B_SEC=$(/usr/bin/jq   ".pgmap.read_bytes_sec"   /tmp/ceph-status-json)
+READ_OP_SEC=$(/usr/bin/jq  ".pgmap.read_op_per_sec"  /tmp/ceph-status-json)
+WRITE_B_SEC=$(/usr/bin/jq  ".pgmap.write_bytes_sec"  /tmp/ceph-status-json)
+WRITE_OP_SEC=$(/usr/bin/jq ".pgmap.write_op_per_sec" /tmp/ceph-status-json)
+
+echo "ceph_num_objects,Hostname=$HOSTNAME value=$SYS_OBJECTS"       >> /tmp/ceph_influx_write
+echo "ceph_data_bytes,Hostname=$HOSTNAME value=$DATA_BYTES"         >> /tmp/ceph_influx_write
+echo "ceph_bytes_used,Hostname=$HOSTNAME value=$BYTES_USED"         >> /tmp/ceph_influx_write
+echo "ceph_bytes_avail,Hostname=$HOSTNAME value=$BYTES_AVAIL"       >> /tmp/ceph_influx_write
+echo "ceph_bytes_total,Hostname=$HOSTNAME value=$BYTES_TOTAL"       >> /tmp/ceph_influx_write
+echo "ceph_read_bytes_sec,Hostname=$HOSTNAME value=$READ_B_SEC"     >> /tmp/ceph_influx_write
+echo "ceph_read_op_per_sec,Hostname=$HOSTNAME value=$READ_OP_SEC"   >> /tmp/ceph_influx_write
+echo "ceph_write_bytes_sec,Hostname=$HOSTNAME value=$WRITE_B_SEC"   >> /tmp/ceph_influx_write
+echo "ceph_write_op_per_sec,Hostname=$HOSTNAME value=$WRITE_OP_SEC" >> /tmp/ceph_influx_write
+
+# post the data to the database
+POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/ceph_influx_write"
+eval $POST
+
+# clean up the processed files.
+rm /tmp/ceph_influx_write
+rm /tmp/ceph-df-json
+rm /tmp/ceph-status-json
+
