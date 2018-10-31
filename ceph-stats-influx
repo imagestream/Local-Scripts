@@ -44,6 +44,8 @@ OSD_UP=$(/usr/bin/jq       ".osdmap.num_up_osds"      /tmp/ceph-status-json)
 OSD_IN=$(/usr/bin/jq       ".osdmap.num_in_osds"      /tmp/ceph-status-json)
 REMAP_PG=$(/usr/bin/jq     ".osdmap.num_remapped_pgs" /tmp/ceph-status-json)
 
+HEALTH_OK=$(/usr/bin/jq -r ".health.status" /tmp/ceph-status | grep -c HEALTH_OK)
+
 echo "ceph_num_objects,Hostname=$HOSTNAME value=$SYS_OBJECTS"       >> /tmp/ceph_influx_write
 echo "ceph_data_bytes,Hostname=$HOSTNAME value=$DATA_BYTES"         >> /tmp/ceph_influx_write
 echo "ceph_bytes_used,Hostname=$HOSTNAME value=$BYTES_USED"         >> /tmp/ceph_influx_write
@@ -57,6 +59,7 @@ echo "ceph_num_osd,Hostname=$HOSTNAME value=$OSD_NUM"               >> /tmp/ceph
 echo "ceph_osd_up,Hostname=$HOSTNAME value=$OSD_UP"                 >> /tmp/ceph_influx_write
 echo "ceph_osd_in,Hostname=$HOSTNAME value=$OSD_IN"                 >> /tmp/ceph_influx_write
 echo "ceph_remap_pgs,Hostname=$HOSTNAME value=$REMAP_PG"            >> /tmp/ceph_influx_write
+echo "ceph_health_ok,Hostname=$HOSTNAME value=$HEALTH_OK"           >> /tmp/ceph_influx_write
 
 # post the data to the database
 POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/ceph_influx_write"
