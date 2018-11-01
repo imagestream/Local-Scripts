@@ -45,7 +45,7 @@ OSD_UP=$(/usr/bin/jq       ".osdmap.num_up_osds"      /tmp/ceph-status-json)
 OSD_IN=$(/usr/bin/jq       ".osdmap.num_in_osds"      /tmp/ceph-status-json)
 REMAP_PG=$(/usr/bin/jq     ".osdmap.num_remapped_pgs" /tmp/ceph-status-json)
 
-HEALTH_OK=$(/usr/bin/jq -r ".health.status" /tmp/ceph-status | grep -c HEALTH_OK)
+HEALTH_OK=$(/usr/bin/jq -r ".health.status" /tmp/ceph-status-json | grep -c HEALTH_OK)
 
 echo "ceph_num_objects,Hostname=$HOSTNAME value=$SYS_OBJECTS"       >> /tmp/ceph_influx_write
 echo "ceph_data_bytes,Hostname=$HOSTNAME value=$DATA_BYTES"         >> /tmp/ceph_influx_write
