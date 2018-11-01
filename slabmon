@@ -1,0 +1,33 @@
+#!/bin/bash
+# Usage slabmon <influxdb url>
+
+slabtop -o > /tmp/slabout
+ceph df > /tmp/cephdf
+csplit /tmp/cephdf '/rbd/' '{*}'
+
+# Kmalloc
+while read i; do
+        VALUE=$(cat /tmp/slabout | grep $i | awk '{print $2}')
+        echo "stats,memory=kmalloc,type=$i value=$VALUE" >> /tmp/statsmon
+done < kmalloctypes
+
+# other slab values
+while read i; do
+        VALUE=$(cat /tmp/slabout | grep $i | awk '{print $2}')
+        echo "stats,memory=slab,type=$i value=$VALUE" >> /tmp/statsmon
+done < slabtypes
+
+# Ceph df
+#while read i; do
+#       echo "stats,ceph=df,type=
+#done < xx01
+
+# post the data to the database
+POST="curl -i -XPOST \""$1\"" --data-binary @/tmp/statsmon"
+eval $POST
+
+rm xx00
+rm xx01
+rm /tmp/slabout
+rm /tmp/statsmon
+
