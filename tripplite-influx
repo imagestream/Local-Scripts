@@ -36,8 +36,8 @@ echo "ups_runtime,Hostname=$HOSTNAME value=$UPSRUNTIME" >> /tmp/influx_write
 echo "ups_load_percent,Hostname=$HOSTNAME value=$LOADPERCENT" >> /tmp/influx_write
 # Ups power output in amps
 echo "ups_output_amps,Hostname=$HOSTNAME value=$OUTPUTAMPS" >> /tmp/influx_write
-echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYTEMP" >> /tmp/influx_write
-echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYVOLT" >> /tmp/influx_write
+echo "ups_battery_temp,Hostname=$HOSTNAME value=$BATTERYTEMP" >> /tmp/influx_write
+echo "ups_battery_voltage,Hostname=$HOSTNAME value=$BATTERYVOLT" >> /tmp/influx_write
 
 
 # post the data to the database
