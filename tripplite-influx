@@ -3,18 +3,24 @@
 HOSTNAME="upsmon1.imagestream.com"
 
 
-/bin/upsc triplite> /tmp/ups-status
+/bin/upsc triplight > /tmp/ups-status
 
-# Are we on Line Voltage?
+# Are we on Line Voltage? If we should see status "OL" for On Line.  
 LINEPOWER=$(cat /tmp/ups-status | grep -c "ups.status: OL")
 # Line Voltage
 LINEVOLTAGE=$(cat /tmp/ups-status | grep  "input.voltage:"  | awk '{print $2}')
 # Battery Capacity 
-BATTERYCAP=$(cat /tmp/ups-status | grep  "Battery Cap"  | awk '{print $3}')
+BATTERYCAP=$(cat /tmp/ups-status | grep  "battery.charge:"  | awk '{print $2}')
 # Runtime
-UPSRUNTIME=$(cat /tmp/ups-status | grep  "Runtime"  | awk '{print $3}')
+UPSRUNTIME=$(cat /tmp/ups-status | grep  "battery.runtime:"  | awk '{print $2}')
 # Load in Watts
-WATTS=$(cat /tmp/ups-status | grep  "Load"  | awk '{print $2}')
+LOADPERCENT=$(cat /tmp/ups-status | grep  "ups.load:"  | awk '{print $2}')
+# Output in amps
+OUTPUTAMPS=$(cat /tmp/ups-status | grep "output.current:" | awk '{print $2}')
+# Battery Temp
+BATTERYTEMP=$(cat /tmp/ups-status | grep  "battery.temperature:"  | awk '{print $2}')
+# Battery Voltage 
+BATTERYVOLT=$(cat /tmp/ups-status | grep  "battery.voltage:"  | awk '{print $2}')
 
 
 # Are we on Wall Power
@@ -23,15 +29,19 @@ echo "linepower,Hostname=$HOSTNAME value=$LINEPOWER" >> /tmp/influx_write
 echo "linevoltage,Hostname=$HOSTNAME value=$LINEVOLTAGE" >> /tmp/influx_write
 # Battery Capacity 1-100%
 echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYCAP" >> /tmp/influx_write
-# UPS Runtime in Minutes
+# UPS Runtime in seconds
 echo "ups_runtime,Hostname=$HOSTNAME value=$UPSRUNTIME" >> /tmp/influx_write
 # Load in Watts
-echo "ups_load_watts,Hostname=$HOSTNAME value=$WATTS" >> /tmp/influx_write
+echo "ups_load_percent,Hostname=$HOSTNAME value=$LOADPERCENT" >> /tmp/influx_write
+# Ups power output in amps
+echo "ups_output_amps,Hostname=$HOSTNAME value=$OUTPUTAMPS" >> /tmp/influx_write
+echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYTEMP" >> /tmp/influx_write
+echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYVOLT" >> /tmp/influx_write
 
 
 # post the data to the database
-#POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/influx_write"
-#eval $POST
+POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/influx_write"
+eval $POST
 
 # clean up the processed files.
 rm /tmp/ups-status
