@@ -1,6 +1,7 @@
 #!/bin/bash
 # simple script to scrape Ups status from tripplite Ups and ship it up to Influxdb
-HOSTNAME="upsmon1.imagestream.com"
+# usage: command <local hostname> <Url to the Influxdb>
+HOSTNAME=$1
 
 
 /bin/upsc triplight > /tmp/ups-status
@@ -40,7 +41,7 @@ echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYVOLT" >> /tmp/influx_write
 
 
 # post the data to the database
-POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/influx_write"
+POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/influx_write"
 eval $POST
 
 # clean up the processed files.
