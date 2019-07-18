@@ -3,8 +3,9 @@
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: ceph-stats-influx <hostname of system> <number of ceph pools to scan> <influxdb url>
 
-/usr/bin/ceph df     --format=json > /tmp/ceph-df-json
-/usr/bin/ceph status --format=json > /tmp/ceph-status-json
+/usr/bin/ceph df        --format=json > /tmp/ceph-df-json
+/usr/bin/ceph status    --format=json > /tmp/ceph-status-json
+/usr/bin/ceph osd perf  --format=json > /tmp/ceph-osd-perf-json
 
 # Pass the hostname via the command line
 HOSTNAME=$1
@@ -30,6 +31,18 @@ do
 	echo "ceph_kb_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$KB_USED"        >> /tmp/ceph_influx_write
 done
 
+#Loop over the performance stats of each osd
+# Get the number of Osd's
+NUM_OSD=$(/usr/bin/jq ".osd_perf_infos | length"  /tmp/ceph-osd-perf-json)
+for ((x=0; x<NUM_OSD; x++)); do
+	OSD_ID=$(/usr/bin/jq ".osd_perf_infos[$x].id"                                   /tmp/ceph-ods-perf-json)
+	OSD_COMMIT_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.commit_latency_ms" /tmp/ceph-ods-perf-json)
+	OSD_APPLY_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.apply_latency_ms"   /tmp/ceph-ods-perf-json)
+	
+	echo "ceph_osd_commit_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
+	echo "ceph_osd_apply_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
+done 
+
 # Read system wide performance stats
 SYS_OBJECTS=$(/usr/bin/jq   ".pgmap.num_objects"        /tmp/ceph-status-json)
 DATA_BYTES=$(/usr/bin/jq    ".pgmap.data_bytes"         /tmp/ceph-status-json)
@@ -48,7 +61,8 @@ MISPLACED_TOT=$(/usr/bin/jq ".pgmap.misplaced_total" /tmp/ceph-status-json)
 MISPLACED_RAT=$(/usr/bin/jq ".pgmap.misplaced_ratio" /tmp/ceph-status-json)
 REC_OB_SEC=$(/usr/bin/jq ".pgmap.recovering_objects_per_sec" /tmp/ceph-status-json)
 REC_B_SEC=$(/usr/bin/jq ".pgmap.recovering_bytes_per_sec" /tmp/ceph-status-json)
-
+DEGRADE_OB=$(/usr/bin/jq ".pgmap.degraded_objects" /tmp/ceph-status-json)
+DEGRADE_RAT=$(/usr/bin/jq ".pgmap.degraded_ratio" /tmp/ceph-status-json)
 
 OSD_NUM=$(/usr/bin/jq      ".osdmap.osdmap.num_osds"         /tmp/ceph-status-json)
 OSD_UP=$(/usr/bin/jq       ".osdmap.osdmap.num_up_osds"      /tmp/ceph-status-json)
@@ -88,3 +102,4 @@ eval $POST
 rm /tmp/ceph_influx_write
 rm /tmp/ceph-df-json
 rm /tmp/ceph-status-json
+rm /tmp/ceph-osd-perf-json
