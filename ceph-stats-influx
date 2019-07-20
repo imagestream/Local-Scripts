@@ -94,7 +94,7 @@ echo "ceph_misplaced_total,Hostname=$HOSTNAME value=$MISPLACED_TOT "  >> /tmp/ce
 echo "ceph_misplaced_ratio,Hostname=$HOSTNAME value=$MISPLACED_RAT"   >> /tmp/ceph_influx_write
 echo "ceph_recovery_bytes_sec,Hostname=$HOSTNAME value=$REC_B_SEC"    >> /tmp/ceph_influx_write
 echo "ceph_recovery_obj_sec,Hostname=$HOSTNAME value=$REC_OB_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_degraded_objects,Hostname=$HOSTNAME value=$DEGRAD_OB"      >> /tmp/ceph_influx_write
+echo "ceph_degraded_objects,Hostname=$HOSTNAME value=$DEGRADE_OB"     >> /tmp/ceph_influx_write
 echo "ceph_degraded_ratio,Hostname=$HOSTNAME value=$DEGRADE_RAT"      >> /tmp/ceph_influx_write
 echo "ceph_degraded_total,Hostname=$HOSTNAME value=$DEGRADE_TOT"      >> /tmp/ceph_influx_write
 
