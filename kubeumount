@@ -1,0 +1,8 @@
+#!/bin/bash
+df -h | grep kubelet | awk '{print $NF}' > /tmp/kubelet-umount
+mounts='/tmp/kubelet-umount'
+
+while read p; do
+	echo umount $p
+	umount $p
+done < $mounts
