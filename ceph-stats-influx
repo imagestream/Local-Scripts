@@ -6,6 +6,7 @@
 /usr/bin/ceph df        --format=json > /tmp/ceph-df-json
 /usr/bin/ceph status    --format=json > /tmp/ceph-status-json
 /usr/bin/ceph osd perf  --format=json > /tmp/ceph-osd-perf-json
+/usr/bin/ceph osd df    --format=json > /tmp/ceph-osd-df-json
 
 # Pass the hostname via the command line
 HOSTNAME=$1
@@ -42,6 +43,23 @@ for ((x=0; x<NUM_OSD; x++)); do
 	echo "ceph_osd_commit_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
 	echo "ceph_osd_apply_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
 done 
+
+#Loop over the ceph DF info for each osd
+# we are going to do this again so we are 100% sure everything lines up correctly
+NUM_OSD=$(/usr/bin/jq ".nodes | length"  /tmp/ceph-osd-df-json)
+for ((x=0; x<NUM_OSD; x++)); do
+	OSD_ID=$(/usr/bin/jq ".nodes[$x].id"						/tmp/ceph-osd-df-json)
+	OSD_NAME=$(/usr/bin/jq ".nodes[$x].name"					/tmp/ceph-osd-df-json)
+	OSD_DF_USED=$(/usr/bin/jq ".nodes[$x].kb_used"					/tmp/ceph-osd-df-json)
+	OSD_DF_AVAIL=$(/usr/bin/jq ".nodes[$x].kb_avail"				/tmp/ceph-osd-df-json)
+	OSD_DF_UTILIZATION=$(/usr/bin/jq ".nodes[$x].utilization"			/tmp/ceph-osd-df-json)
+	OSD_DF_PGS=$(/usr/bin/jq ".nodes[$x].pgs"					/tmp/ceph-osd-df-json)
+
+	echo "ceph_osd_df_kb_used,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_USED"	>> /tmp/ceph_influx_write
+	echo "ceph_osd_df_avail,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_AVAIL"	>> /tmp/ceph_influx_write
+	echo "ceph_osd_df_pgs,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_PGS"		>> /tmp/ceph_influx_write
+	echo "ceph_osd_df_util,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_UTILIZATION"	>> /tmp/ceph_influx_write
+done
 
 # Read system wide performance stats
 SYS_OBJECTS=$(/usr/bin/jq   ".pgmap.num_objects"                     /tmp/ceph-status-json)
@@ -107,3 +125,4 @@ rm /tmp/ceph_influx_write
 rm /tmp/ceph-df-json
 rm /tmp/ceph-status-json
 rm /tmp/ceph-osd-perf-json
+rm /tmp/ceph-osd-df-json
