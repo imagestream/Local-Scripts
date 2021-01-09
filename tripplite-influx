@@ -4,6 +4,7 @@
 HOSTNAME=$1
 
 
+rm /tmp/ups-status
 /bin/upsc triplight > /tmp/ups-status
 
 # Are we on Line Voltage? If we should see status "OL" for On Line.  
@@ -45,6 +46,5 @@ POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/influx_write"
 eval $POST
 
 # clean up the processed files.
-rm /tmp/ups-status
 rm /tmp/influx_write
 
