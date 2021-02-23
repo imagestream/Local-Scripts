@@ -1,11 +1,11 @@
 #!/bin/bash
 # simple script to scrape Ups status from tripplite Ups and ship it up to Influxdb
-# usage: command <local hostname> <Url to the Influxdb>
+# usage: ups-nut-influx <local hostname> <ups name> <Url to the Influxdb>
 HOSTNAME=$1
-
+USPNAME=$2
 
 rm /tmp/ups-status
-/bin/upsc triplight > /tmp/ups-status
+/bin/upsc $2 > /tmp/ups-status
 
 # Are we on Line Voltage? If we should see status "OL" for On Line.  
 LINEPOWER=$(cat /tmp/ups-status | grep -c "ups.status: OL")
@@ -26,23 +26,23 @@ BATTERYVOLT=$(cat /tmp/ups-status | grep  "battery.voltage:"  | awk '{print $2}'
 
 
 # Are we on Wall Power
-echo "linepower,Hostname=$HOSTNAME value=$LINEPOWER" >> /tmp/influx_write
+echo "linepower,Hostname=$HOSTNAME,Ups=$2 value=$LINEPOWER" >> /tmp/influx_write
 # Line Voltage
-echo "linevoltage,Hostname=$HOSTNAME value=$LINEVOLTAGE" >> /tmp/influx_write
+echo "linevoltage,Hostname=$HOSTNAME,Ups=$2 value=$LINEVOLTAGE" >> /tmp/influx_write
 # Battery Capacity 1-100%
-echo "ups_capacity,Hostname=$HOSTNAME value=$BATTERYCAP" >> /tmp/influx_write
+echo "ups_capacity,Hostname=$HOSTNAME,Ups=$2 value=$BATTERYCAP" >> /tmp/influx_write
 # UPS Runtime in seconds
-echo "ups_runtime,Hostname=$HOSTNAME value=$UPSRUNTIME" >> /tmp/influx_write
+echo "ups_runtime,Hostname=$HOSTNAME,Ups=$2 value=$UPSRUNTIME" >> /tmp/influx_write
 # Load in Watts
-echo "ups_load_percent,Hostname=$HOSTNAME value=$LOADPERCENT" >> /tmp/influx_write
+echo "ups_load_percent,Hostname=$HOSTNAME,Ups=$2 value=$LOADPERCENT" >> /tmp/influx_write
 # Ups power output in amps
-echo "ups_output_amps,Hostname=$HOSTNAME value=$OUTPUTAMPS" >> /tmp/influx_write
-echo "ups_battery_temp,Hostname=$HOSTNAME value=$BATTERYTEMP" >> /tmp/influx_write
-echo "ups_battery_voltage,Hostname=$HOSTNAME value=$BATTERYVOLT" >> /tmp/influx_write
+echo "ups_output_amps,Hostname=$HOSTNAME,Ups=$2 value=$OUTPUTAMPS" >> /tmp/influx_write
+echo "ups_battery_temp,Hostname=$HOSTNAME,Ups=$2 value=$BATTERYTEMP" >> /tmp/influx_write
+echo "ups_battery_voltage,Hostname=$HOSTNAME,Ups=$2 value=$BATTERYVOLT" >> /tmp/influx_write
 
 
 # post the data to the database
-POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/influx_write"
+POST="curl -i -XPOST \""$3\"" --data-binary @/tmp/influx_write"
 eval $POST
 
 # clean up the processed files.
