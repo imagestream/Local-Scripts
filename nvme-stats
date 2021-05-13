@@ -1,0 +1,40 @@
+#!/bin/bash
+# simple script to scrap nvme and ship it up to Influxdb
+# This requires jq to be installed @ /usr/bin/jq
+# Usage: nvme-stats <hostname of system> <nvme device> <influxdb url>
+
+/usr/sbin/nvme smart-log $2 > /tmp/nvme-smartlog
+
+# Pass the hostname via the command line
+HOSTNAME=$1
+
+# Get Ipmi stats
+NVME_TEMP=$(cat /tmp/nvme-smartlog     		| grep temperature  			| awk '{print $3}')
+NVME_SPARE=$(cat /tmp/nvme-smartlog     	| grep 'available_spare '		| awk '{print $3}' | sed 's/%//g')
+NVME_SPARE_THRES=$(cat /tmp/nvme-smartlog     	| grep available_spare_threshold 	| awk '{print $3}' | sed 's/%//g')
+NVME_USED=$(cat /tmp/nvme-smartlog     		| grep percentage_used 			| awk '{print $3}' | sed 's/%//g')
+NVME_DATA_READ=$(cat /tmp/nvme-smartlog     	| grep data_units_read 			| awk '{print $3}' | sed 's/,//g')
+NVME_DATA_WRITE=$(cat /tmp/nvme-smartlog     	| grep data_units_written		| awk '{print $3}' | sed 's/,//g')
+NVME_CRIT=$(cat /tmp/nvme-smartlog     		| grep critical_warning 		| awk '{print $3}')
+NVME_MEDIA_ERRORS=$(cat /tmp/nvme-smartlog     	| grep media_errors 			| awk '{print $3}')
+
+# Multiply the data units by 512 bytes to get the real byte value
+NVME_DATA_READ=$(( $NVME_DATA_READ * 512))
+NVME_DATA_WRITE=$(( $NVME_DATA_WRITE * 512))
+
+echo "nvme_temperature,Hostname=$HOSTNAME,Device=$2 		value=$NVME_TEMP"       	>> /tmp/nvme_influxwrite
+echo "nvme_spare,Hostname=$HOSTNAME,Device=$2 			value=$NVME_SPARE"       	>> /tmp/nvme_influxwrite
+echo "nvme_spare_threshold,Hostname=$HOSTNAME,Device=$2 	value=$NVME_SPARE_THRES"       	>> /tmp/nvme_influxwrite
+echo "nvme_used,Hostname=$HOSTNAME,Device=$2 			value=$NVME_USED"       	>> /tmp/nvme_influxwrite
+echo "nvme_bytes_read,Hostname=$HOSTNAME,Device=$2 		value=$NVME_DATA_READ"    	>> /tmp/nvme_influxwrite
+echo "nvme_bytes_write,Hostname=$HOSTNAME,Device=$2 		value=$NVME_DATA_WRITE"      	>> /tmp/nvme_influxwrite
+echo "nvme_crit_warns,Hostname=$HOSTNAME,Device=$2 		value=$NVME_CRIT"      		>> /tmp/nvme_influxwrite
+echo "nvme_media_errors,Hostname=$HOSTNAME,Device=$2 		value=$NVME_MEDIA_ERRORS"      	>> /tmp/nvme_influxwrite
+
+# post the data to the database
+POST="curl -i -XPOST \""$3\"" --data-binary @/tmp/nvme_influxwrite"
+eval $POST
+
+# clean up the processed files.
+rm /tmp/nvme_influxwrite
+rm /tmp/nvme-smartlog
