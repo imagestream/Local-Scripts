@@ -22,8 +22,8 @@ NVME_CRIT=$(cat /tmp/nvme-smartlog-$FILENAME		| grep critical_warning 		| awk '{
 NVME_MEDIA_ERRORS=$(cat /tmp/nvme-smartlog-$FILENAME	| grep media_errors 			| awk '{print $3}')
 
 # Multiply the data units by 512 bytes to get the real byte value
-NVME_DATA_READ=$(( $NVME_DATA_READ * 512))
-NVME_DATA_WRITE=$(( $NVME_DATA_WRITE * 512))
+NVME_DATA_READ=$(( $NVME_DATA_READ * 512000))
+NVME_DATA_WRITE=$(( $NVME_DATA_WRITE * 512000))
 
 echo "nvme_temperature,Hostname=$HOSTNAME,Device=$2 		value=$NVME_TEMP"       	>> /tmp/nvme_influxwrite-$FILENAME
 echo "nvme_spare,Hostname=$HOSTNAME,Device=$2 			value=$NVME_SPARE"       	>> /tmp/nvme_influxwrite-$FILENAME
