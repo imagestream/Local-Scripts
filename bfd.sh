@@ -3,8 +3,8 @@
 
 HOSTNAME=$1
 
-vtysh -c "show bfd peers json"     >> /tmp/bfd_peers
-vtysh -c "show bfd peers counters json" >> /tmp/bfd_counters
+timeout -s 9 20 vtysh -c "show bfd peers json"     >> /tmp/bfd_peers
+timeout -s 9 20 vtysh -c "show bfd peers counters json" >> /tmp/bfd_counters
 
 
 PEER=$(cat /tmp/bfd_peers |  /usr/bin/jsonfilter -a -e '@[0][*]["peer"]')
