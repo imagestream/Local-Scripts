@@ -68,7 +68,7 @@ echo "totalBackupsUsed,Project=$1 value=$TOTAL_BACKUPS_USED"      			>> /tmp/os-
 echo "totalGigabytesUsed,Project=$1 value=$TOTAL_GIGABYTES_USED"      			>> /tmp/os-quota-influx_write
 
 # post the data to the database
-POST="curl -i -XPOST \""$3\"" --data-binary @/tmp/ceph_influx_write"
+POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/os-quota-influx_write"
 eval $POST
 
 # clean up the processed files.
