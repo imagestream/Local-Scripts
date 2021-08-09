@@ -1,0 +1,76 @@
+#!/bin/bash
+# simple script to scrap the Openstack tool and get Quotas for a project and ship it up to Influxdb
+# This requires jq to be installed @ /usr/bin/jq
+# Usage: os-project-quota <project-id> <influxdb url>
+
+/usr/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
+
+#jq '.[] | select(.Name=="totalCoresUsed")."Value" '
+
+MAX_SERVER_META=$(/usr/bin/jq '.[] | select(.Name=="maxServerMeta")."Value" ' 				/tmp/os-quota-json)
+MAX_TOTAL_INSTANCES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalInstances")."Value" ' 			/tmp/os-quota-json)
+MAX_PERSONALITY=$(/usr/bin/jq '.[] | select(.Name=="maxPersonality")."Value" ' 				/tmp/os-quota-json)
+TOTAL_SERVER_GROUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="maxPersonality")."Value" ' 		/tmp/os-quota-json)
+MAX_IMAGE_META=$(/usr/bin/jq '.[] | select(.Name=="maxImageMeta")."Value" ' 				/tmp/os-quota-json)
+MAX_PERSONALITY_SIZE=$(/usr/bin/jq '.[] | select(.Name=="maxPersonalitySize")."Value" ' 		/tmp/os-quota-json)
+MAX_TOTAL_RAM_SIZE=$(/usr/bin/jq '.[] | select(.Name=="maxTotalRAMSize")."Value" ' 			/tmp/os-quota-json)
+MAX_SERVER_GROUPS=$(/usr/bin/jq '.[] | select(.Name=="maxServerGroups")."Value" ' 			/tmp/os-quota-json)
+MAX_SECURITY_GROUP_RULES=$(/usr/bin/jq '.[] | select(.Name=="maxSecurityGroupRules")."Value" ' 		/tmp/os-quota-json)
+MAX_TOTAL_KEYPAIRS=$(/usr/bin/jq '.[] | select(.Name=="maxTotalKeypairs")."Value" ' 			/tmp/os-quota-json)
+TOTAL_CORES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalCoresUsed")."Value" ' 			/tmp/os-quota-json)
+TOTAL_RAM_USED=$(/usr/bin/jq '.[] | select(.Name=="totalRAMUsed")."Value" ' 				/tmp/os-quota-json)
+MAX_SECURITY_GROUPS=$(/usr/bin/jq '.[] | select(.Name=="maxSecurityGroups")."Value" ' 			/tmp/os-quota-json)
+TOTAL_FLOATING_IPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalFloatingIpsUsed")."Value" ' 		/tmp/os-quota-json)
+TOTAL_INSTANCES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalInstancesUsed")."Value" ' 		/tmp/os-quota-json)
+MAX_SERVER_GROUP_MEMEBERS=$(/usr/bin/jq '.[] | select(.Name=="maxServerGroupMembers")."Value" ' 	/tmp/os-quota-json)
+MAX_TOTAL_FLOATING_IPS=$(/usr/bin/jq '.[] | select(.Name=="maxTotalFloatingIps")."Value" ' 		/tmp/os-quota-json)
+TOTAL_SECURITY_GROUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalSecurityGroupsUsed")."Value" ' 	/tmp/os-quota-json)
+MAX_TOTAL_CORES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalCores")."Value" ' 				/tmp/os-quota-json)
+TOTAL_SNAPSHOTS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalSnapshotsUsed")."Value" ' 		/tmp/os-quota-json)
+MAX_TOTAL_BACKUPS=$(/usr/bin/jq '.[] | select(.Name=="maxTotalBackups")."Value" ' 			/tmp/os-quota-json)
+MAX_TOTAL_VOLUME_GIGABYTES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalVolumeGigabytes")."Value" ' 	/tmp/os-quota-json)
+MAX_TOTAL_SNAPSHOTS=$(/usr/bin/jq '.[] | select(.Name=="maxTotalSnapshots")."Value" ' 			/tmp/os-quota-json)
+MAX_TOTAL_BACKUP_GIGABYTES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalBackupGigabytes")."Value" ' 	/tmp/os-quota-json)
+TOTAL_BACKUP_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupGigabytesUsed")."Value" ' 	/tmp/os-quota-json)
+MAX_TOTAL_VOLUMES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalVolumes")."Value" ' 			/tmp/os-quota-json)
+TOTAL_VOLUMES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalVolumesUsed")."Value" ' 			/tmp/os-quota-json)
+TOTAL_BACKUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupsUsed")."Value" ' 			/tmp/os-quota-json)
+TOTAL_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalGigabytesUsed")."Value" ' 		/tmp/os-quota-json)
+
+echo "maxServerMeta,Project=$1 value=$MAX_SERVER_META"      				>> /tmp/os-quota-influx_write
+echo "maxTotalInstances,Project=$1 value=$MAX_TOTAL_INSTANCES"      			>> /tmp/os-quota-influx_write
+echo "maxPersonality,Project=$1 value=$MAX_PERSONALITY"      				>> /tmp/os-quota-influx_write
+echo "totalServerGroupsUsed,Project=$1 value=$TOTAL_SERVER_GROUPS_USED"      		>> /tmp/os-quota-influx_write
+echo "maxImageMeta,Project=$1 value=$MAX_IMAGE_META"      				>> /tmp/os-quota-influx_write
+echo "maxPersonalitySize,Project=$1 value=$MAX_PERSONALITY_SIZE"      			>> /tmp/os-quota-influx_write
+echo "maxTotalRAMSize,Project=$1 value=$MAX_TOTAL_RAM_SIZE"      			>> /tmp/os-quota-influx_write
+echo "maxServerGroups,Project=$1 value=$MAX_SERVER_GROUPS"      			>> /tmp/os-quota-influx_write
+echo "maxSecurityGroupRules,Project=$1 value=$MAX_SECURITY_GROUP_RULES"      		>> /tmp/os-quota-influx_write
+echo "maxTotalKeypairs,Project=$1 value=$MAX_TOTAL_KEYPAIRS"      			>> /tmp/os-quota-influx_write
+echo "totalCoresUsed,Project=$1 value=$TOTAL_CORES_USED"      				>> /tmp/os-quota-influx_write
+echo "totalRAMUsed,Project=$1 value=$TOTAL_RAM_USED"      				>> /tmp/os-quota-influx_write
+echo "maxSecurityGroups,Project=$1 value=$MAX_SECURITY_GROUPS"      			>> /tmp/os-quota-influx_write
+echo "totalFloatingIpsUsed,Project=$1 value=$TOTAL_FLOATING_IPS_USED"      		>> /tmp/os-quota-influx_write
+echo "totalInstancesUsed,Project=$1 value=$TOTAL_INSTANCES_USED"      			>> /tmp/os-quota-influx_write
+echo "maxServerGroupMembers,Project=$1 value=$MAX_SERVER_GROUP_MEMEBERS"      		>> /tmp/os-quota-influx_write
+echo "maxTotalFloatingIps,Project=$1 value=$MAX_TOTAL_FLOATING_IPS"      		>> /tmp/os-quota-influx_write
+echo "totalSecurityGroupsUsed,Project=$1 value=$TOTAL_SECURITY_GROUPS_USED"      	>> /tmp/os-quota-influx_write
+echo "maxTotalCores,Project=$1 value=$MAX_TOTAL_CORES"      				>> /tmp/os-quota-influx_write
+echo "totalSnapshotsUsed,Project=$1 value=$TOTAL_SNAPSHOTS_USED"      			>> /tmp/os-quota-influx_write
+echo "maxTotalBackups,Project=$1 value=$MAX_TOTAL_BACKUPS"      			>> /tmp/os-quota-influx_write
+echo "maxTotalVolumeGigabytes,Project=$1 value=$MAX_TOTAL_VOLUME_GIGABYTES"      	>> /tmp/os-quota-influx_write
+echo "maxTotalSnapshots,Project=$1 value=$MAX_TOTAL_SNAPSHOTS"      			>> /tmp/os-quota-influx_write
+echo "maxTotalBackupGigabytes,Project=$1 value=$MAX_TOTAL_BACKUP_GIGABYTES"      	>> /tmp/os-quota-influx_write
+echo "totalBackupGigabytesUsed,Project=$1 value=$TOTAL_BACKUP_GIGABYTES_USED"      	>> /tmp/os-quota-influx_write
+echo "maxTotalVolumes,Project=$1 value=$MAX_TOTAL_VOLUMES"      			>> /tmp/os-quota-influx_write
+echo "totalVolumesUsed,Project=$1 value=$TOTAL_VOLUMES_USED"      			>> /tmp/os-quota-influx_write
+echo "totalBackupsUsed,Project=$1 value=$TOTAL_BACKUPS_USED"      			>> /tmp/os-quota-influx_write
+echo "totalGigabytesUsed,Project=$1 value=$TOTAL_GIGABYTES_USED"      			>> /tmp/os-quota-influx_write
+
+# post the data to the database
+POST="curl -i -XPOST \""$3\"" --data-binary @/tmp/ceph_influx_write"
+eval $POST
+
+# clean up the processed files.
+rm /tmp/os-quota-json
+rm /tmp/os-quota-influx_write
