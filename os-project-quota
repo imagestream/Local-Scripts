@@ -3,7 +3,7 @@
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: os-project-quota <project-id> <influxdb url>
 
-/usr/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
+/usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
 
 #jq '.[] | select(.Name=="totalCoresUsed")."Value" '
 
