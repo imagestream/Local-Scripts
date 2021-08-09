@@ -5,6 +5,8 @@
 
 /usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
 /usr/local/bin/openstack --os-cloud admin volume list --project $1 -f json > /tmp/os-volume-list-json 
+/usr/local/bin/openstack --os-cloud admin quota show $1 -f json > /tmp/os-q-json
+/usr/local/bin/openstack --os-cloud admin volume snapshot list --project $1 -f json > /tmp/os-vs-json
 
 #jq '.[] | select(.Name=="totalCoresUsed")."Value" '
 
@@ -39,6 +41,8 @@ TOTAL_BACKUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupsUsed")."Value
 TOTAL_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalGigabytesUsed")."Value" ' 		/tmp/os-quota-json)
 
 TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add'					/tmp/os-volume-list-json)
+TOTAL_SNAPSHOTS_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add'				/tmp/os-vs-json)
+TOTAL_STORAGE_QUOTA_GIGABYTES=$(/usr/bin/jq '.gigabytes'  						/tmp/os-q-json)
 
 echo "maxServerMeta,Project=$1 value=$MAX_SERVER_META"      				>> /tmp/os-quota-influx_write
 echo "maxTotalInstances,Project=$1 value=$MAX_TOTAL_INSTANCES"      			>> /tmp/os-quota-influx_write
@@ -70,6 +74,8 @@ echo "totalVolumesUsed,Project=$1 value=$TOTAL_VOLUMES_USED"      			>> /tmp/os-
 echo "totalBackupsUsed,Project=$1 value=$TOTAL_BACKUPS_USED"      			>> /tmp/os-quota-influx_write
 echo "totalGigabytesUsed,Project=$1 value=$TOTAL_GIGABYTES_USED"      			>> /tmp/os-quota-influx_write
 echo "totalVolumesUsedGB,Project=$1 value=$TOTAL_VOLUMES_USED_GIGABYTES"		>> /tmp/os-quota-influx_write
+echo "totalSnapshotsUsedGB,Project=$1 value=$TOTAL_SNAPSHOTS_USED_GIGABYTES"		>> /tmp/os-quota-influx_write
+echo "totalStorageUsedGB,Project=$1 value=$TOTAL_STORAGE_QUOTA_GIGABYTES"		>> /tmp/os-quota-influx_write
 
 # post the data to the database
 POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/os-quota-influx_write"
@@ -77,5 +83,7 @@ eval $POST
 
 # clean up the processed files.
 rm /tmp/os-quota-json
+rm /tmp/os-q-json
 rm /tmp/os-volume-list-json
+rm /tmp/os-vs-json
 rm /tmp/os-quota-influx_write
