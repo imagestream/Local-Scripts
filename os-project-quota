@@ -4,6 +4,7 @@
 # Usage: os-project-quota <project-id> <influxdb url>
 
 /usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
+/usr/local/bin/openstack --os-cloud admin volume list --project $1 -f json > /tmp/os-volume-list-json 
 
 #jq '.[] | select(.Name=="totalCoresUsed")."Value" '
 
@@ -37,6 +38,8 @@ TOTAL_VOLUMES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalVolumesUsed")."Value
 TOTAL_BACKUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupsUsed")."Value" ' 			/tmp/os-quota-json)
 TOTAL_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalGigabytesUsed")."Value" ' 		/tmp/os-quota-json)
 
+TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add'					/tmp/os-volume-list-json)
+
 echo "maxServerMeta,Project=$1 value=$MAX_SERVER_META"      				>> /tmp/os-quota-influx_write
 echo "maxTotalInstances,Project=$1 value=$MAX_TOTAL_INSTANCES"      			>> /tmp/os-quota-influx_write
 echo "maxPersonality,Project=$1 value=$MAX_PERSONALITY"      				>> /tmp/os-quota-influx_write
@@ -66,6 +69,7 @@ echo "maxTotalVolumes,Project=$1 value=$MAX_TOTAL_VOLUMES"      			>> /tmp/os-qu
 echo "totalVolumesUsed,Project=$1 value=$TOTAL_VOLUMES_USED"      			>> /tmp/os-quota-influx_write
 echo "totalBackupsUsed,Project=$1 value=$TOTAL_BACKUPS_USED"      			>> /tmp/os-quota-influx_write
 echo "totalGigabytesUsed,Project=$1 value=$TOTAL_GIGABYTES_USED"      			>> /tmp/os-quota-influx_write
+echo "totalVolumesUsedGB,Project=$1 value=$TOTAL_VOLUMES_USED_GIGABYTES"		>> /tmp/os-quota-influx_write
 
 # post the data to the database
 POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/os-quota-influx_write"
@@ -73,4 +77,5 @@ eval $POST
 
 # clean up the processed files.
 rm /tmp/os-quota-json
+rm /tmp/os-volume-list-json
 rm /tmp/os-quota-influx_write
