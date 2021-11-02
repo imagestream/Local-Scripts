@@ -40,8 +40,8 @@ TOTAL_VOLUMES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalVolumesUsed")."Value
 TOTAL_BACKUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupsUsed")."Value" ' 			/tmp/os-quota-json)
 TOTAL_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalGigabytesUsed")."Value" ' 		/tmp/os-quota-json)
 
-TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add'					/tmp/os-volume-list-json)
-TOTAL_SNAPSHOTS_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add'				/tmp/os-vs-json)
+TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				/tmp/os-volume-list-json)
+TOTAL_SNAPSHOTS_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				/tmp/os-vs-json)
 TOTAL_STORAGE_QUOTA_GIGABYTES=$(/usr/bin/jq '.gigabytes'  						/tmp/os-q-json)
 
 echo "maxServerMeta,Project=$1 value=$MAX_SERVER_META"      				>> /tmp/os-quota-influx_write
