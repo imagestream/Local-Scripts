@@ -2,6 +2,7 @@
 # simple script to scrap the Openstack tool and get Quotas for a project and ship it up to Influxdb
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: os-project-quota <project-id> <influxdb url>
+# Joshua Snyder : josh@imagestream.com
 
 /usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > /tmp/os-quota-json
 /usr/local/bin/openstack --os-cloud admin volume list --project $1 -f json > /tmp/os-volume-list-json 
