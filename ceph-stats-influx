@@ -3,10 +3,18 @@
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: ceph-stats-influx <hostname of system> <number of ceph pools to scan> <influxdb url>
 
-/usr/bin/ceph df        --format=json > /tmp/ceph-df-json
-/usr/bin/ceph status    --format=json > /tmp/ceph-status-json
-/usr/bin/ceph osd perf  --format=json > /tmp/ceph-osd-perf-json
-/usr/bin/ceph osd df    --format=json > /tmp/ceph-osd-df-json
+ceph_write=$(mktemp /tmp/influx.XXXXXXXXX)
+
+cephdf=$(mktemp /tmp/cephdf.XXXXXXXXX)
+cephstatus=$(mktemp /tmp/cephstatus.XXXXXXXXX)
+osdperf=$(mktemp /tmp/osdperf.XXXXXXXXX)
+osddf=$(mktemp /tmp/osddf.XXXXXXXXX)
+
+
+/usr/bin/ceph df        --format=json > $cephdf
+/usr/bin/ceph status    --format=json > $cephstatus
+/usr/bin/ceph osd perf  --format=json > $osdperf
+/usr/bin/ceph osd df    --format=json > $osddf
 
 # Pass the hostname via the command line
 HOSTNAME=$1
@@ -17,112 +25,112 @@ poolmax=$2
 # Loop over the pool id to get per pool stats
 for i in $(seq 0 $((poolmax-1)))
 do
-	POOL_NAME=$(/usr/bin/jq -r ".pools[$i].name"               /tmp/ceph-df-json)
-	CEPH_ID=$(/usr/bin/jq      ".pools[$i].id"                 /tmp/ceph-df-json)
-	BYTES_USED=$(/usr/bin/jq   ".pools[$i].stats.bytes_used"   /tmp/ceph-df-json)
-	MAX_AVAIL=$(/usr/bin/jq    ".pools[$i].stats.max_avail"    /tmp/ceph-df-json)
-	PERC_USED=$(/usr/bin/jq    ".pools[$i].stats.percent_used" /tmp/ceph-df-json)
-	NUM_OBJECTS=$(/usr/bin/jq  ".pools[$i].stats.objects"      /tmp/ceph-df-json)
-	KB_USED=$(/usr/bin/jq      ".pools[$i].stats.kb_used"      /tmp/ceph-df-json)
+	POOL_NAME=$(/usr/bin/jq -r ".pools[$i].name"               $cephdf)
+	CEPH_ID=$(/usr/bin/jq      ".pools[$i].id"                 $cephdf)
+	BYTES_USED=$(/usr/bin/jq   ".pools[$i].stats.bytes_used"   $cephdf)
+	MAX_AVAIL=$(/usr/bin/jq    ".pools[$i].stats.max_avail"    $cephdf)
+	PERC_USED=$(/usr/bin/jq    ".pools[$i].stats.percent_used" $cephdf)
+	NUM_OBJECTS=$(/usr/bin/jq  ".pools[$i].stats.objects"      $cephdf)
+	KB_USED=$(/usr/bin/jq      ".pools[$i].stats.kb_used"      $cephdf)
 
-	echo "ceph_bytes_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$BYTES_USED"  >> /tmp/ceph_influx_write
-	echo "ceph_max_avail,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$MAX_AVAIL"    >> /tmp/ceph_influx_write
-	echo "ceph_percent_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$PERC_USED" >> /tmp/ceph_influx_write
-	echo "ceph_objects,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$NUM_OBJECTS"    >> /tmp/ceph_influx_write
-	echo "ceph_kb_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$KB_USED"        >> /tmp/ceph_influx_write
+	echo "ceph_bytes_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$BYTES_USED"  >> $ceph_write
+	echo "ceph_max_avail,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$MAX_AVAIL"    >> $ceph_write
+	echo "ceph_percent_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$PERC_USED" >> $ceph_write
+	echo "ceph_objects,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$NUM_OBJECTS"    >> $ceph_write
+	echo "ceph_kb_used,Hostname=$HOSTNAME,pool_id=$CEPH_ID,name=$POOL_NAME value=$KB_USED"        >> $ceph_write
 done
 
 #Loop over the performance stats of each osd
 # Get the number of Osd's
-NUM_OSD=$(/usr/bin/jq ".osd_perf_infos | length"  /tmp/ceph-osd-perf-json)
+NUM_OSD=$(/usr/bin/jq ".osd_perf_infos | length"  $osdperf)
 for ((x=0; x<NUM_OSD; x++)); do
-	OSD_ID=$(/usr/bin/jq ".osd_perf_infos[$x].id"                                   /tmp/ceph-osd-perf-json)
-	OSD_COMMIT_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.commit_latency_ms" /tmp/ceph-osd-perf-json)
-	OSD_APPLY_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.apply_latency_ms"   /tmp/ceph-osd-perf-json)
+	OSD_ID=$(/usr/bin/jq ".osd_perf_infos[$x].id"                                   $osdperf)
+	OSD_COMMIT_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.commit_latency_ms" $osdperf)
+	OSD_APPLY_LAT=$(/usr/bin/jq ".osd_perf_infos[$x].perf_stats.apply_latency_ms"   $osdperf)
 	
-	echo "ceph_osd_commit_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
-	echo "ceph_osd_apply_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> /tmp/ceph_influx_write
+	echo "ceph_osd_commit_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> $ceph_write
+	echo "ceph_osd_apply_latency_ms,Hostname=$HOSTNAME,osd_id=$OSD_ID value=$OSD_COMMIT_LAT"	>> $ceph_write
 done 
 
 #Loop over the ceph DF info for each osd
 # we are going to do this again so we are 100% sure everything lines up correctly
-NUM_OSD=$(/usr/bin/jq ".nodes | length"  /tmp/ceph-osd-df-json)
+NUM_OSD=$(/usr/bin/jq ".nodes | length"  $osddf)
 for ((x=0; x<NUM_OSD; x++)); do
-	OSD_ID=$(/usr/bin/jq ".nodes[$x].id"						/tmp/ceph-osd-df-json)
-	OSD_NAME=$(/usr/bin/jq ".nodes[$x].name"					/tmp/ceph-osd-df-json)
-	OSD_DF_USED=$(/usr/bin/jq ".nodes[$x].kb_used"					/tmp/ceph-osd-df-json)
-	OSD_DF_AVAIL=$(/usr/bin/jq ".nodes[$x].kb_avail"				/tmp/ceph-osd-df-json)
-	OSD_DF_UTILIZATION=$(/usr/bin/jq ".nodes[$x].utilization"			/tmp/ceph-osd-df-json)
-	OSD_DF_PGS=$(/usr/bin/jq ".nodes[$x].pgs"					/tmp/ceph-osd-df-json)
+	OSD_ID=$(/usr/bin/jq ".nodes[$x].id"						$osddf)
+	OSD_NAME=$(/usr/bin/jq ".nodes[$x].name"					$osddf)
+	OSD_DF_USED=$(/usr/bin/jq ".nodes[$x].kb_used"					$osddf)
+	OSD_DF_AVAIL=$(/usr/bin/jq ".nodes[$x].kb_avail"				$osddf)
+	OSD_DF_UTILIZATION=$(/usr/bin/jq ".nodes[$x].utilization"			$osddf)
+	OSD_DF_PGS=$(/usr/bin/jq ".nodes[$x].pgs"					$osddf)
 
-	echo "ceph_osd_df_kb_used,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_USED"	>> /tmp/ceph_influx_write
-	echo "ceph_osd_df_avail,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_AVAIL"	>> /tmp/ceph_influx_write
-	echo "ceph_osd_df_pgs,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_PGS"		>> /tmp/ceph_influx_write
-	echo "ceph_osd_df_util,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_UTILIZATION"	>> /tmp/ceph_influx_write
+	echo "ceph_osd_df_kb_used,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_USED"	>> $ceph_write
+	echo "ceph_osd_df_avail,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_AVAIL"	>> $ceph_write
+	echo "ceph_osd_df_pgs,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_PGS"		>> $ceph_write
+	echo "ceph_osd_df_util,Hostname=$HOSTNAME,osd_id=$OSD_ID,osd_name=$OSD_NAME value=$OSD_DF_UTILIZATION"	>> $ceph_write
 done
 
 # Read system wide performance stats
-SYS_OBJECTS=$(/usr/bin/jq   ".pgmap.num_objects"                     /tmp/ceph-status-json)
-DATA_BYTES=$(/usr/bin/jq    ".pgmap.data_bytes"                      /tmp/ceph-status-json)
-BYTES_USED=$(/usr/bin/jq    ".pgmap.bytes_used"                      /tmp/ceph-status-json)
-BYTES_AVAIL=$(/usr/bin/jq   ".pgmap.bytes_avail"                     /tmp/ceph-status-json)
-BYTES_TOTAL=$(/usr/bin/jq   ".pgmap.bytes_total"                     /tmp/ceph-status-json)
-READ_B_SEC=$(/usr/bin/jq    ".pgmap.read_bytes_sec // 0"             /tmp/ceph-status-json)
-READ_OP_SEC=$(/usr/bin/jq   ".pgmap.read_op_per_sec // 0"            /tmp/ceph-status-json)
-WRITE_B_SEC=$(/usr/bin/jq   ".pgmap.write_bytes_sec // 0"            /tmp/ceph-status-json)
-WRITE_OP_SEC=$(/usr/bin/jq  ".pgmap.write_op_per_sec // 0"           /tmp/ceph-status-json)
-FLUSH_B_SEC=$(/usr/bin/jq   ".pgmap.flush_bytes_sec // 0"            /tmp/ceph-status-json)
-EVICT_B_SEC=$(/usr/bin/jq   ".pgmap.evict_bytes_sec // 0"            /tmp/ceph-status-json)
-PROMOT_OP_SEC=$(/usr/bin/jq ".pgmap.promote_op_per_sec // 0"         /tmp/ceph-status-json)
-MISPLACED_OB=$(/usr/bin/jq  ".pgmap.misplaced_objects // 0"          /tmp/ceph-status-json)
-MISPLACED_TOT=$(/usr/bin/jq ".pgmap.misplaced_total // 0"            /tmp/ceph-status-json)
-MISPLACED_RAT=$(/usr/bin/jq ".pgmap.misplaced_ratio // 0"            /tmp/ceph-status-json)
-REC_OB_SEC=$(/usr/bin/jq    ".pgmap.recovering_objects_per_sec // 0" /tmp/ceph-status-json)
-REC_B_SEC=$(/usr/bin/jq     ".pgmap.recovering_bytes_per_sec // 0"   /tmp/ceph-status-json)
-DEGRADE_OB=$(/usr/bin/jq    ".pgmap.degraded_objects // 0"           /tmp/ceph-status-json)
-DEGRADE_RAT=$(/usr/bin/jq   ".pgmap.degraded_ratio // 0"             /tmp/ceph-status-json)
-DEGRADE_TOT=$(/usr/bin/jq   ".pgmap.degraded_total // 0"             /tmp/ceph-status-json)
+SYS_OBJECTS=$(/usr/bin/jq   ".pgmap.num_objects"                     $cephstatus)
+DATA_BYTES=$(/usr/bin/jq    ".pgmap.data_bytes"                      $cephstatus)
+BYTES_USED=$(/usr/bin/jq    ".pgmap.bytes_used"                      $cephstatus)
+BYTES_AVAIL=$(/usr/bin/jq   ".pgmap.bytes_avail"                     $cephstatus)
+BYTES_TOTAL=$(/usr/bin/jq   ".pgmap.bytes_total"                     $cephstatus)
+READ_B_SEC=$(/usr/bin/jq    ".pgmap.read_bytes_sec // 0"             $cephstatus)
+READ_OP_SEC=$(/usr/bin/jq   ".pgmap.read_op_per_sec // 0"            $cephstatus)
+WRITE_B_SEC=$(/usr/bin/jq   ".pgmap.write_bytes_sec // 0"            $cephstatus)
+WRITE_OP_SEC=$(/usr/bin/jq  ".pgmap.write_op_per_sec // 0"           $cephstatus)
+FLUSH_B_SEC=$(/usr/bin/jq   ".pgmap.flush_bytes_sec // 0"            $cephstatus)
+EVICT_B_SEC=$(/usr/bin/jq   ".pgmap.evict_bytes_sec // 0"            $cephstatus)
+PROMOT_OP_SEC=$(/usr/bin/jq ".pgmap.promote_op_per_sec // 0"         $cephstatus)
+MISPLACED_OB=$(/usr/bin/jq  ".pgmap.misplaced_objects // 0"          $cephstatus)
+MISPLACED_TOT=$(/usr/bin/jq ".pgmap.misplaced_total // 0"            $cephstatus)
+MISPLACED_RAT=$(/usr/bin/jq ".pgmap.misplaced_ratio // 0"            $cephstatus)
+REC_OB_SEC=$(/usr/bin/jq    ".pgmap.recovering_objects_per_sec // 0" $cephstatus)
+REC_B_SEC=$(/usr/bin/jq     ".pgmap.recovering_bytes_per_sec // 0"   $cephstatus)
+DEGRADE_OB=$(/usr/bin/jq    ".pgmap.degraded_objects // 0"           $cephstatus)
+DEGRADE_RAT=$(/usr/bin/jq   ".pgmap.degraded_ratio // 0"             $cephstatus)
+DEGRADE_TOT=$(/usr/bin/jq   ".pgmap.degraded_total // 0"             $cephstatus)
 
-OSD_NUM=$(/usr/bin/jq       ".osdmap.osdmap.num_osds"                /tmp/ceph-status-json)
-OSD_UP=$(/usr/bin/jq        ".osdmap.osdmap.num_up_osds"             /tmp/ceph-status-json)
-OSD_IN=$(/usr/bin/jq        ".osdmap.osdmap.num_in_osds"             /tmp/ceph-status-json)
-REMAP_PG=$(/usr/bin/jq      ".osdmap.osdmap.num_remapped_pgs // 0"   /tmp/ceph-status-json)
+OSD_NUM=$(/usr/bin/jq       ".osdmap.osdmap.num_osds"                $cephstatus)
+OSD_UP=$(/usr/bin/jq        ".osdmap.osdmap.num_up_osds"             $cephstatus)
+OSD_IN=$(/usr/bin/jq        ".osdmap.osdmap.num_in_osds"             $cephstatus)
+REMAP_PG=$(/usr/bin/jq      ".osdmap.osdmap.num_remapped_pgs // 0"   $cephstatus)
 
-HEALTH_OK=$(/usr/bin/jq -r ".health.status" /tmp/ceph-status-json | grep -c HEALTH_OK)
+HEALTH_OK=$(/usr/bin/jq -r ".health.status" $cephstatus | grep -c HEALTH_OK)
 
-echo "ceph_num_objects,Hostname=$HOSTNAME value=$SYS_OBJECTS"         >> /tmp/ceph_influx_write
-echo "ceph_data_bytes,Hostname=$HOSTNAME value=$DATA_BYTES"           >> /tmp/ceph_influx_write
-echo "ceph_bytes_used,Hostname=$HOSTNAME value=$BYTES_USED"           >> /tmp/ceph_influx_write
-echo "ceph_bytes_avail,Hostname=$HOSTNAME value=$BYTES_AVAIL"         >> /tmp/ceph_influx_write
-echo "ceph_bytes_total,Hostname=$HOSTNAME value=$BYTES_TOTAL"         >> /tmp/ceph_influx_write
-echo "ceph_read_bytes_sec,Hostname=$HOSTNAME value=$READ_B_SEC"       >> /tmp/ceph_influx_write
-echo "ceph_read_op_per_sec,Hostname=$HOSTNAME value=$READ_OP_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_write_bytes_sec,Hostname=$HOSTNAME value=$WRITE_B_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_write_op_per_sec,Hostname=$HOSTNAME value=$WRITE_OP_SEC"   >> /tmp/ceph_influx_write
-echo "ceph_num_osd,Hostname=$HOSTNAME value=$OSD_NUM"                 >> /tmp/ceph_influx_write
-echo "ceph_osd_up,Hostname=$HOSTNAME value=$OSD_UP"                   >> /tmp/ceph_influx_write
-echo "ceph_osd_in,Hostname=$HOSTNAME value=$OSD_IN"                   >> /tmp/ceph_influx_write
-echo "ceph_remap_pgs,Hostname=$HOSTNAME value=$REMAP_PG"              >> /tmp/ceph_influx_write
-echo "ceph_health_ok,Hostname=$HOSTNAME value=$HEALTH_OK"             >> /tmp/ceph_influx_write
-echo "ceph_flush_bytes_sec,Hostname=$HOSTNAME value=$FLUSH_B_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_evict_bytes_sec,Hostname=$HOSTNAME value=$EVICT_B_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_promot_op_per_sec,Hostname=$HOSTNAME value=$PROMOT_OP_SEC" >> /tmp/ceph_influx_write
-echo "ceph_misplaced_objects,Hostname=$HOSTNAME value=$MISPLACED_OB"  >> /tmp/ceph_influx_write
-echo "ceph_misplaced_total,Hostname=$HOSTNAME value=$MISPLACED_TOT "  >> /tmp/ceph_influx_write
-echo "ceph_misplaced_ratio,Hostname=$HOSTNAME value=$MISPLACED_RAT"   >> /tmp/ceph_influx_write
-echo "ceph_recovery_bytes_sec,Hostname=$HOSTNAME value=$REC_B_SEC"    >> /tmp/ceph_influx_write
-echo "ceph_recovery_obj_sec,Hostname=$HOSTNAME value=$REC_OB_SEC"     >> /tmp/ceph_influx_write
-echo "ceph_degraded_objects,Hostname=$HOSTNAME value=$DEGRADE_OB"     >> /tmp/ceph_influx_write
-echo "ceph_degraded_ratio,Hostname=$HOSTNAME value=$DEGRADE_RAT"      >> /tmp/ceph_influx_write
-echo "ceph_degraded_total,Hostname=$HOSTNAME value=$DEGRADE_TOT"      >> /tmp/ceph_influx_write
+echo "ceph_num_objects,Hostname=$HOSTNAME value=$SYS_OBJECTS"         >> $ceph_write
+echo "ceph_data_bytes,Hostname=$HOSTNAME value=$DATA_BYTES"           >> $ceph_write
+echo "ceph_bytes_used,Hostname=$HOSTNAME value=$BYTES_USED"           >> $ceph_write
+echo "ceph_bytes_avail,Hostname=$HOSTNAME value=$BYTES_AVAIL"         >> $ceph_write
+echo "ceph_bytes_total,Hostname=$HOSTNAME value=$BYTES_TOTAL"         >> $ceph_write
+echo "ceph_read_bytes_sec,Hostname=$HOSTNAME value=$READ_B_SEC"       >> $ceph_write
+echo "ceph_read_op_per_sec,Hostname=$HOSTNAME value=$READ_OP_SEC"     >> $ceph_write
+echo "ceph_write_bytes_sec,Hostname=$HOSTNAME value=$WRITE_B_SEC"     >> $ceph_write
+echo "ceph_write_op_per_sec,Hostname=$HOSTNAME value=$WRITE_OP_SEC"   >> $ceph_write
+echo "ceph_num_osd,Hostname=$HOSTNAME value=$OSD_NUM"                 >> $ceph_write
+echo "ceph_osd_up,Hostname=$HOSTNAME value=$OSD_UP"                   >> $ceph_write
+echo "ceph_osd_in,Hostname=$HOSTNAME value=$OSD_IN"                   >> $ceph_write
+echo "ceph_remap_pgs,Hostname=$HOSTNAME value=$REMAP_PG"              >> $ceph_write
+echo "ceph_health_ok,Hostname=$HOSTNAME value=$HEALTH_OK"             >> $ceph_write
+echo "ceph_flush_bytes_sec,Hostname=$HOSTNAME value=$FLUSH_B_SEC"     >> $ceph_write
+echo "ceph_evict_bytes_sec,Hostname=$HOSTNAME value=$EVICT_B_SEC"     >> $ceph_write
+echo "ceph_promot_op_per_sec,Hostname=$HOSTNAME value=$PROMOT_OP_SEC" >> $ceph_write
+echo "ceph_misplaced_objects,Hostname=$HOSTNAME value=$MISPLACED_OB"  >> $ceph_write
+echo "ceph_misplaced_total,Hostname=$HOSTNAME value=$MISPLACED_TOT "  >> $ceph_write
+echo "ceph_misplaced_ratio,Hostname=$HOSTNAME value=$MISPLACED_RAT"   >> $ceph_write
+echo "ceph_recovery_bytes_sec,Hostname=$HOSTNAME value=$REC_B_SEC"    >> $ceph_write
+echo "ceph_recovery_obj_sec,Hostname=$HOSTNAME value=$REC_OB_SEC"     >> $ceph_write
+echo "ceph_degraded_objects,Hostname=$HOSTNAME value=$DEGRADE_OB"     >> $ceph_write
+echo "ceph_degraded_ratio,Hostname=$HOSTNAME value=$DEGRADE_RAT"      >> $ceph_write
+echo "ceph_degraded_total,Hostname=$HOSTNAME value=$DEGRADE_TOT"      >> $ceph_write
 
 # post the data to the database
-POST="curl -i -XPOST \""$3\"" --data-binary @/tmp/ceph_influx_write"
+POST="curl -i -XPOST \""$3\"" --data-binary @$ceph_write"
 eval $POST
 
 # clean up the processed files.
-rm /tmp/ceph_influx_write
-rm /tmp/ceph-df-json
-rm /tmp/ceph-status-json
-rm /tmp/ceph-osd-perf-json
-rm /tmp/ceph-osd-df-json
+rm $ceph_write
+rm $cephdf
+rm $cephstatus
+rm $osdperf
+rm $osddf
