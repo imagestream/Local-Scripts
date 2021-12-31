@@ -3,8 +3,13 @@
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: ceph-stats-influx <hostname of system> <number of ceph pools to scan> <influxdb url>
 
-/usr/local/bin/openstack --os-cloud admin hypervisor list -f json 	> /tmp/hypervisor-list-json
-/usr/local/bin/openstack --os-cloud admin hypervisor stats show -f json > /tmp/hypervisor-stats-json
+os_influx_write=$(mktemp /tmp/influx.XXXXXXXXX)
+
+hyper_list=$(mktemp /tmp/hlist.XXXXXXXXX)
+hyper_stats=$(mktemp /tmp/hstats.XXXXXXXXX)
+
+/usr/local/bin/openstack --os-cloud admin hypervisor list -f json 	> $hyper_list
+/usr/local/bin/openstack --os-cloud admin hypervisor stats show -f json > $hyper_stats
 
 # Pass the hostname via the command line
 CLOUDNAME=$1
@@ -13,51 +18,52 @@ CLOUDNAME=$1
 # Sadly there is no way to run a single command and get ALL of the info at once.
 # So we have to issue multiple openstack commands which isn't ideal... 
 # But we will still only do this once per hypervisor
-NUM_HYPERVISORS=$(/usr/bin/jq "length" /tmp/hypervisor-list-json )
+NUM_HYPERVISORS=$(/usr/bin/jq "length" $hyper_list )
 for ((x=0; x<NUM_HYPERVISORS; x++)); do
-	HYPER_ID=$(/usr/bin/jq ".[$x].ID" 		/tmp/hypervisor-list-json)
-	/usr/local/bin/openstack --os-cloud admin hypervisor show $HYPER_ID -f json > /tmp/hypervisor-$x-json
+	HYPER_ID=$(/usr/bin/jq ".[$x].ID" 		$hyper_list)
+	hloop=$(mktemp /tmp/hloop.XXXXXXXXX)
+	/usr/local/bin/openstack --os-cloud admin hypervisor show $HYPER_ID -f json > $hloop
 
-	HYPER_NAME=$(/usr/bin/jq ".hypervisor_hostname" /tmp/hypervisor-$x-json | tr -d \" )
-	VCPU_USED=$(/usr/bin/jq ".vcpus_used" 		/tmp/hypervisor-$x-json )
-	VCPU_PHY=$(/usr/bin/jq ".vcpus_used" 		/tmp/hypervisor-$x-json )
-	VMS=$(/usr/bin/jq ".running_vms" 		/tmp/hypervisor-$x-json )
-	FREE_MEM_MB=$(/usr/bin/jq ".free_ram_mb" 	/tmp/hypervisor-$x-json )
-	USED_MEM_MB=$(/usr/bin/jq ".memory_mb_used" 	/tmp/hypervisor-$x-json )
-	MEM_MB_PHY=$(/usr/bin/jq ".memory_mb" 		/tmp/hypervisor-$x-json )
-	STATE=$(/usr/bin/jq -r ".state" /tmp/hypervisor-$x-json | grep -c "up")
+	HYPER_NAME=$(/usr/bin/jq ".hypervisor_hostname" $hloop | tr -d \" )
+	VCPU_USED=$(/usr/bin/jq ".vcpus_used" 		$hloop )
+	VCPU_PHY=$(/usr/bin/jq ".vcpus_used" 		$hloop )
+	VMS=$(/usr/bin/jq ".running_vms" 		$hloop )
+	FREE_MEM_MB=$(/usr/bin/jq ".free_ram_mb" 	$hloop )
+	USED_MEM_MB=$(/usr/bin/jq ".memory_mb_used" 	$hloop )
+	MEM_MB_PHY=$(/usr/bin/jq ".memory_mb" 		$hloop )
+	STATE=$(/usr/bin/jq -r ".state" $hloop | grep -c "up")
 
-	echo "os_hypervisor_vms,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VMS" 		>> /tmp/os_influx_write 
-	echo "os_hypervisor_vcpu_phy,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VCPU_PHY" 	>> /tmp/os_influx_write 
-	echo "os_hypervisor_vcpu,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VCPU_USED" 	>> /tmp/os_influx_write 
-	echo "os_hypervisor_free_mb,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$FREE_MEM_MB"	>> /tmp/os_influx_write 
-	echo "os_hypervisor_used_mb,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$USED_MEM_MB"	>> /tmp/os_influx_write 
-	echo "os_hypervisor_mb_phy,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$MEM_MB_PHY" 	>> /tmp/os_influx_write 
-	echo "os_hypervisor_state,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$STATE" 	>> /tmp/os_influx_write 
+	echo "os_hypervisor_vms,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VMS" 		>> $os_influx_write 
+	echo "os_hypervisor_vcpu_phy,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VCPU_PHY" 	>> $os_influx_write 
+	echo "os_hypervisor_vcpu,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$VCPU_USED" 	>> $os_influx_write 
+	echo "os_hypervisor_free_mb,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$FREE_MEM_MB"	>> $os_influx_write 
+	echo "os_hypervisor_used_mb,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$USED_MEM_MB"	>> $os_influx_write 
+	echo "os_hypervisor_mb_phy,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$MEM_MB_PHY" 	>> $os_influx_write 
+	echo "os_hypervisor_state,Hypervisor=$HYPER_NAME,cloud=$CLOUDNAME value=$STATE" 	>> $os_influx_write 
 
-	rm /tmp/hypervisor-$x-json
+	rm $hloop 
 done
 
-TOTAL_VCPU=$(/usr/bin/jq 	".vcpus"		/tmp/hypervisor-stats-json)
-TOTAL_VCPU_USED=$(/usr/bin/jq 	".vcpus_used"		/tmp/hypervisor-stats-json)
-TOTAL_MB=$(/usr/bin/jq 		".memory_mb"		/tmp/hypervisor-stats-json)
-TOTAL_MB_FREE=$(/usr/bin/jq 	".free_ram_mb"		/tmp/hypervisor-stats-json)
-TOTAL_MB_USED=$(/usr/bin/jq 	".memory_mb_used"	/tmp/hypervisor-stats-json)
-TOTAL_VMS=$(/usr/bin/jq 	".running_vms"		/tmp/hypervisor-stats-json)
+TOTAL_VCPU=$(/usr/bin/jq 	".vcpus"		$hyper_stats)
+TOTAL_VCPU_USED=$(/usr/bin/jq 	".vcpus_used"		$hyper_stats)
+TOTAL_MB=$(/usr/bin/jq 		".memory_mb"		$hyper_stats)
+TOTAL_MB_FREE=$(/usr/bin/jq 	".free_ram_mb"		$hyper_stats)
+TOTAL_MB_USED=$(/usr/bin/jq 	".memory_mb_used"	$hyper_stats)
+TOTAL_VMS=$(/usr/bin/jq 	".running_vms"		$hyper_stats)
 
-echo "os_total_vcpu,cloud=$CLOUDNAME value=$TOTAL_VCPU"			>> /tmp/os_influx_write
-echo "os_total_vcpu_used,cloud=$CLOUDNAME value=$TOTAL_VCPU_USED"	>> /tmp/os_influx_write
-echo "os_total_mb,cloud=$CLOUDNAME value=$TOTAL_MB"			>> /tmp/os_influx_write
-echo "os_total_mb_free,cloud=$CLOUDNAME value=$TOTAL_MB_FREE"		>> /tmp/os_influx_write
-echo "os_total_mb_used,cloud=$CLOUDNAME value=$TOTAL_MB_USED"		>> /tmp/os_influx_write
-echo "os_total_vms,cloud=$CLOUDNAME value=$TOTAL_VMS"			>> /tmp/os_influx_write
+echo "os_total_vcpu,cloud=$CLOUDNAME value=$TOTAL_VCPU"			>> $os_influx_write
+echo "os_total_vcpu_used,cloud=$CLOUDNAME value=$TOTAL_VCPU_USED"	>> $os_influx_write
+echo "os_total_mb,cloud=$CLOUDNAME value=$TOTAL_MB"			>> $os_influx_write
+echo "os_total_mb_free,cloud=$CLOUDNAME value=$TOTAL_MB_FREE"		>> $os_influx_write
+echo "os_total_mb_used,cloud=$CLOUDNAME value=$TOTAL_MB_USED"		>> $os_influx_write
+echo "os_total_vms,cloud=$CLOUDNAME value=$TOTAL_VMS"			>> $os_influx_write
 
 
 # post the data to the database
-POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/os_influx_write"
+POST="curl -i -XPOST \""$2\"" --data-binary @$os_influx_write"
 eval $POST
 
 # clean up the processed files.
-rm /tmp/os_influx_write
-rm /tmp/hypervisor-list-json
-rm /tmp/hypervisor-stats-json
+rm $os_influx_write
+rm $hyper_list
+rm $hyper_stats
