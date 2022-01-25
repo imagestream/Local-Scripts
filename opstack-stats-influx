@@ -9,10 +9,9 @@ hyper_list=$(mktemp /tmp/hlist.XXXXXXXXX)
 hyper_stats=$(mktemp /tmp/hstats.XXXXXXXXX)
 floating_stats=$(mktemp /tmp/fstats.XXXXXXXXX)
 
-
 /usr/local/bin/openstack --os-cloud admin hypervisor list -f json 	> $hyper_list
 /usr/local/bin/openstack --os-cloud admin hypervisor stats show -f json > $hyper_stats
-/usr/local/bin/openstack --os-cloud admin floating ip list -f json	> $floating_stats | awk '{ print $4}' | grep 205.159.243 | sort | wc -l
+/usr/local/bin/openstack --os-cloud admin floating ip list -f json	> $floating_stats 
 
 # Pass the hostname via the command line
 CLOUDNAME=$1
@@ -76,3 +75,4 @@ eval $POST
 rm $os_influx_write
 rm $hyper_list
 rm $hyper_stats
+rm $floating_stats
