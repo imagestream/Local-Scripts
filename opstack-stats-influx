@@ -7,9 +7,11 @@ os_influx_write=$(mktemp /tmp/influx.XXXXXXXXX)
 
 hyper_list=$(mktemp /tmp/hlist.XXXXXXXXX)
 hyper_stats=$(mktemp /tmp/hstats.XXXXXXXXX)
+floating_stats=$(mktemp /tmp/fstats.XXXXXXXXX)
 
 /usr/local/bin/openstack --os-cloud admin hypervisor list -f json 	> $hyper_list
 /usr/local/bin/openstack --os-cloud admin hypervisor stats show -f json > $hyper_stats
+/usr/local/bin/openstack --os-cloud admin floating ip list -f json	> $floating_stats 
 
 # Pass the hostname via the command line
 CLOUDNAME=$1
@@ -50,6 +52,9 @@ TOTAL_MB=$(/usr/bin/jq 		".memory_mb"		$hyper_stats)
 TOTAL_MB_FREE=$(/usr/bin/jq 	".free_ram_mb"		$hyper_stats)
 TOTAL_MB_USED=$(/usr/bin/jq 	".memory_mb_used"	$hyper_stats)
 TOTAL_VMS=$(/usr/bin/jq 	".running_vms"		$hyper_stats)
+TOTAL_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | wc -l)
+PRIVATE_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | grep -c 205.159.243)
+PUBLIC_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | grep -c 10.30)
 
 echo "os_total_vcpu,cloud=$CLOUDNAME value=$TOTAL_VCPU"			>> $os_influx_write
 echo "os_total_vcpu_used,cloud=$CLOUDNAME value=$TOTAL_VCPU_USED"	>> $os_influx_write
@@ -57,6 +62,9 @@ echo "os_total_mb,cloud=$CLOUDNAME value=$TOTAL_MB"			>> $os_influx_write
 echo "os_total_mb_free,cloud=$CLOUDNAME value=$TOTAL_MB_FREE"		>> $os_influx_write
 echo "os_total_mb_used,cloud=$CLOUDNAME value=$TOTAL_MB_USED"		>> $os_influx_write
 echo "os_total_vms,cloud=$CLOUDNAME value=$TOTAL_VMS"			>> $os_influx_write
+echo "os_total_floating,cloud=$CLOUDNAME value=$TOTAL_FLOATING_IP"	>> $os_influx_write
+echo "os_private_floating,cloud=$CLOUDNAME value=$PRIVATE_FLOATING_IP"	>> $os_influx_write
+echo "os_public_floating,cloud=$CLOUDNAME value=$PUBLIC_FLOATING_IP"	>> $os_influx_write
 
 
 # post the data to the database
@@ -67,3 +75,4 @@ eval $POST
 rm $os_influx_write
 rm $hyper_list
 rm $hyper_stats
+rm $floating_stats
