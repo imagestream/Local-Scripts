@@ -10,11 +10,13 @@ q_json=$(mktemp /tmp/q-json.XXXXXXXXX)
 os_vol=$(mktemp /tmp/os-vol.XXXXXXXXX)
 os_q=$(mktemp /tmp/os-q.XXXXXXXXX)
 os_vs=$(mktemp /tmp/os-vs.XXXXXXXXX)
+os_is=$(mktemp /tmp/os-is.XXXXXXXXX)
 
 /usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > $q_json
 /usr/local/bin/openstack --os-cloud admin volume list --project $1 -f json > $os_vol 
 /usr/local/bin/openstack --os-cloud admin quota show $1 -f json > $os_q
 /usr/local/bin/openstack --os-cloud admin volume snapshot list --project $1 -f json > $os_vs
+/usr/local/bin/openstack --os-cloud admin server list --project $1 -f json > $os_is
 
 #jq '.[] | select(.Name=="totalCoresUsed")."Value" '
 
@@ -47,6 +49,8 @@ MAX_TOTAL_VOLUMES=$(/usr/bin/jq '.[] | select(.Name=="maxTotalVolumes")."Value" 
 TOTAL_VOLUMES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalVolumesUsed")."Value" ' 			$q_json)
 TOTAL_BACKUPS_USED=$(/usr/bin/jq '.[] | select(.Name=="totalBackupsUsed")."Value" ' 			$q_json)
 TOTAL_GIGABYTES_USED=$(/usr/bin/jq '.[] | select(.Name=="totalGigabytesUsed")."Value" ' 		$q_json)
+INSTANCES_ACTIVE=$(/usr/bin/jq '.[].Status == "ACTIVE"' | wc -l                                         $os_is)
+INSTANCES_SHUTDOWN=$(/usr/bin/jq '.[].Status == "SHUTDOWN"' | wc -l                                     $os_is)
 
 TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				$os_vol)
 TOTAL_SNAPSHOTS_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				$os_vs)
@@ -84,6 +88,8 @@ echo "totalGigabytesUsed,Project=$1 value=$TOTAL_GIGABYTES_USED"      			>> $quo
 echo "totalVolumesUsedGB,Project=$1 value=$TOTAL_VOLUMES_USED_GIGABYTES"		>> $quota_write
 echo "totalSnapshotsUsedGB,Project=$1 value=$TOTAL_SNAPSHOTS_USED_GIGABYTES"		>> $quota_write
 echo "totalStorageUsedGB,Project=$1 value=$TOTAL_STORAGE_QUOTA_GIGABYTES"		>> $quota_write
+echo "instancesActive,Project=$1 value=$INSTANCES_ACTIVE"  	    			>> $quota_write
+echo "instancesShutdown,Project=$1 value=$INSTANCES_SHUTDOWN"      			>> $quota_write
 
 # post the data to the database
 POST="curl -i -XPOST \""$2\"" --data-binary @$quota_write"
@@ -94,4 +100,5 @@ rm $q_json
 rm $os_q
 rm $os_vol
 rm $os_vs
+rm $os_is
 rm $quota_write
