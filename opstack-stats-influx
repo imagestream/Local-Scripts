@@ -52,9 +52,9 @@ TOTAL_MB=$(/usr/bin/jq 		".memory_mb"		$hyper_stats)
 TOTAL_MB_FREE=$(/usr/bin/jq 	".free_ram_mb"		$hyper_stats)
 TOTAL_MB_USED=$(/usr/bin/jq 	".memory_mb_used"	$hyper_stats)
 TOTAL_VMS=$(/usr/bin/jq 	".running_vms"		$hyper_stats)
-TOTAL_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | wc -l)
-PRIVATE_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | grep -c 205.159.243)
-PUBLIC_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | grep -c 10.30)
+TOTAL_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats   | wc -l)
+PUBLIC_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats  | grep -c 205.159.243)
+PRIVATE_FLOATING_IP=$(/usr/bin/jq --raw-output '.[]."Floating IP Address"' $floating_stats | grep -c 10.30)
 
 echo "os_total_vcpu,cloud=$CLOUDNAME value=$TOTAL_VCPU"			>> $os_influx_write
 echo "os_total_vcpu_used,cloud=$CLOUDNAME value=$TOTAL_VCPU_USED"	>> $os_influx_write
