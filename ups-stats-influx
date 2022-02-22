@@ -1,37 +1,41 @@
 #!/bin/bash
 # simple script to scrape Ups status from my Cyberpower Ups and ship it up to Influxdb
 
-/usr/sbin/pwrstat -status > /tmp/ups-status
+ups_stat=$(mktemp /tmp/ups.XXXXXXXXX)
+ups_write=$(mktemp /tmp/ups_write.XXXXXXXXX)
+
+/usr/sbin/pwrstat -status > $ups_stat
 
 # Are we on Line Voltage?
-LINEPOWER=$(cat /tmp/ups-status | grep -c "Utility Power")
+LINEPOWER=$(cat $ups_stat | grep -c "Utility Power")
 # Line Voltage
-LINEVOLTAGE=$(cat /tmp/ups-status | grep  "Utility Voltage"  | awk '{print $3}')
+LINEVOLTAGE=$(cat $ups_stat | grep  "Utility Voltage"  | awk '{print $3}')
 # Battery Capacity 
-BATTERYCAP=$(cat /tmp/ups-status | grep  "Battery Cap"  | awk '{print $3}')
+BATTERYCAP=$(cat $ups_stat | grep  "Battery Cap"  | awk '{print $3}')
 # Runtime
-UPSRUNTIME=$(cat /tmp/ups-status | grep  "Runtime"  | awk '{print $3}')
+UPSRUNTIME=$(cat $ups_stat | grep  "Runtime"  | awk '{print $3}')
 # Load in Watts
-WATTS=$(cat /tmp/ups-status | grep  "Load"  | awk '{print $2}')
+WATTS=$(cat $ups_stat | grep  "Load"  | awk '{print $2}')
 
 
 # Are we on Wall Power
-echo "linepower,Hostname=m6me.cheetahfox.com value=$LINEPOWER" >> /tmp/influx_write
+echo "linepower,Hostname=m6me.cheetahfox.com value=$LINEPOWER" >> $ups_write
 # Line Voltage
-echo "linevoltage,Hostname=m6me.cheetahfox.com value=$LINEVOLTAGE" >> /tmp/influx_write
+echo "linevoltage,Hostname=m6me.cheetahfox.com value=$LINEVOLTAGE" >> $ups_write
 # Battery Capacity 1-100%
-echo "ups_capacity,Hostname=m6me.cheetahfox.com value=$BATTERYCAP" >> /tmp/influx_write
+echo "ups_capacity,Hostname=m6me.cheetahfox.com value=$BATTERYCAP" >> $ups_write
 # UPS Runtime in Minutes
-echo "ups_runtime,Hostname=m6me.cheetahfox.com value=$UPSRUNTIME" >> /tmp/influx_write
+echo "ups_runtime,Hostname=m6me.cheetahfox.com value=$UPSRUNTIME" >> $ups_write
 # Load in Watts
-echo "ups_load_watts,Hostname=m6me.cheetahfox.com value=$WATTS" >> /tmp/influx_write
+echo "ups_load_watts,Hostname=m6me.cheetahfox.com value=$WATTS" >> $ups_write
 
 
 # post the data to the database
-POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @/tmp/influx_write"
+#POST="curl -i -XPOST 'http://monitoring.imagestream.com:8086/write?db=imagestream' --data-binary @$ups_write"
+POST="curl -i -XPOST \""$1\"" --data-binary @$ups_write"
 eval $POST
 
 # clean up the processed files.
-rm /tmp/ups-status
-rm /tmp/influx_write
+rm $ups_stat
+rm $ups_write
 
