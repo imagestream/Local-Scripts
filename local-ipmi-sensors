@@ -3,34 +3,37 @@
 # This requires jq to be installed @ /usr/bin/jq
 # Usage: ceph-stats-influx <hostname of system> <number of ceph pools to scan> <influxdb url>
 
-/usr/sbin/ipmi-sensors > /tmp/ipmi-sensors
+ipmi_write=$(mktemp /tmp/ipmi_write.XXXXXXXXX)
+ipmi_read=$(mktemp /tmp/ipmi_sensors.XXXXXXXXX)
+
+/usr/sbin/ipmi-sensors > $ipmi_read
 
 # Pass the hostname via the command line
 HOSTNAME=$1
 
 # Get Ipmi stats
-CPU1_FAN=$(cat /tmp/ipmi-sensors      | grep CPU1_FAN     | awk '{print $7}')
-CPU0_TEMP=$(cat /tmp/ipmi-sensors     | grep CPU0_TEMP    | awk '{print $7}')
-CPU0_DTS=$(cat /tmp/ipmi-sensors      | grep CPU0_DTS     | awk '{print $7}')
-DIMMG0_TEMP=$(cat /tmp/ipmi-sensors   | grep DIMMG0_TEMP  | awk '{print $7}')
-DIMMG1_TEMP=$(cat /tmp/ipmi-sensors   | grep DIMMG1_TEMP  | awk '{print $7}')
-MB_TEMP1=$(cat /tmp/ipmi-sensors      | grep MB_TEMP1     | awk '{print $7}')
-MB_TEMP2=$(cat /tmp/ipmi-sensors      | grep MB_TEMP2     | awk '{print $7}')
-VR_P0_TEMP=$(cat /tmp/ipmi-sensors    | grep VR_P0_TEMP   | awk '{print $7}')
+CPU1_FAN=$(cat $ipmi_read      | grep CPU1_FAN     | awk '{print $7}')
+CPU0_TEMP=$(cat $ipmi_read     | grep CPU0_TEMP    | awk '{print $7}')
+CPU0_DTS=$(cat $ipmi_read      | grep CPU0_DTS     | awk '{print $7}')
+DIMMG0_TEMP=$(cat $ipmi_read   | grep DIMMG0_TEMP  | awk '{print $7}')
+DIMMG1_TEMP=$(cat $ipmi_read   | grep DIMMG1_TEMP  | awk '{print $7}')
+MB_TEMP1=$(cat $ipmi_read      | grep MB_TEMP1     | awk '{print $7}')
+MB_TEMP2=$(cat $ipmi_read      | grep MB_TEMP2     | awk '{print $7}')
+VR_P0_TEMP=$(cat $ipmi_read    | grep VR_P0_TEMP   | awk '{print $7}')
 
-echo "ipmi_cpu1_fan,Hostname=$HOSTNAME value=$CPU1_FAN"         >> /tmp/ipmi_influx_write
-echo "ipmi_cpu0_temp,Hostname=$HOSTNAME value=$CPU0_TEMP"       >> /tmp/ipmi_influx_write
-echo "ipmi_cpu0_dts,Hostname=$HOSTNAME value=$CPU0_DTS"         >> /tmp/ipmi_influx_write
-echo "ipmi_dimmg0_temp,Hostname=$HOSTNAME value=$DIMMG0_TEMP"   >> /tmp/ipmi_influx_write
-echo "ipmi_dimmg1_temp,Hostname=$HOSTNAME value=$DIMMG1_TEMP"   >> /tmp/ipmi_influx_write
-echo "ipmi_mb_temp1,Hostname=$HOSTNAME value=$MB_TEMP1"         >> /tmp/ipmi_influx_write
-echo "ipmi_mb_temp2,Hostname=$HOSTNAME value=$MB_TEMP2"         >> /tmp/ipmi_influx_write
-echo "ipmi_vr_p0_temp,Hostname=$HOSTNAME value=$VR_P0_TEMP"     >> /tmp/ipmi_influx_write
+echo "ipmi_cpu1_fan,Hostname=$HOSTNAME value=$CPU1_FAN"         >> $ipmi_write
+echo "ipmi_cpu0_temp,Hostname=$HOSTNAME value=$CPU0_TEMP"       >> $ipmi_write
+echo "ipmi_cpu0_dts,Hostname=$HOSTNAME value=$CPU0_DTS"         >> $ipmi_write
+echo "ipmi_dimmg0_temp,Hostname=$HOSTNAME value=$DIMMG0_TEMP"   >> $ipmi_write
+echo "ipmi_dimmg1_temp,Hostname=$HOSTNAME value=$DIMMG1_TEMP"   >> $ipmi_write
+echo "ipmi_mb_temp1,Hostname=$HOSTNAME value=$MB_TEMP1"         >> $ipmi_write
+echo "ipmi_mb_temp2,Hostname=$HOSTNAME value=$MB_TEMP2"         >> $ipmi_write
+echo "ipmi_vr_p0_temp,Hostname=$HOSTNAME value=$VR_P0_TEMP"     >> $ipmi_write
 
 # post the data to the database
-POST="curl -i -XPOST \""$2\"" --data-binary @/tmp/ipmi_influx_write"
+POST="curl -i -XPOST \""$2\"" --data-binary @$ipmi_write"
 eval $POST
 
 # clean up the processed files.
-rm /tmp/ipmi_influx_write
-rm /tmp/ipmi-sensors
+rm $ipmi_write
+rm $ipmi_read
