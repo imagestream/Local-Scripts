@@ -8,10 +8,12 @@ os_influx_write=$(mktemp /tmp/influx.XXXXXXXXX)
 hyper_list=$(mktemp /tmp/hlist.XXXXXXXXX)
 hyper_stats=$(mktemp /tmp/hstats.XXXXXXXXX)
 floating_stats=$(mktemp /tmp/fstats.XXXXXXXXX)
+os_ipa=$(mktemp /tmp/os-ipa.XXXXXXXXX)
 
 /usr/local/bin/openstack --os-cloud admin hypervisor list -f json 	> $hyper_list
 /usr/local/bin/openstack --os-cloud admin hypervisor stats show -f json > $hyper_stats
 /usr/local/bin/openstack --os-cloud admin floating ip list -f json	> $floating_stats 
+/usr/local/bin/openstack --os-cloud admin ip availability list -f json > $os_ipa
 
 # Pass the hostname via the command line
 CLOUDNAME=$1
@@ -46,6 +48,19 @@ for ((x=0; x<NUM_HYPERVISORS; x++)); do
 	rm $hloop 
 done
 
+# check for free ip's in each network and then graph them
+NUM_NETWORKS=$(/usr/bin/jq "length" $os_ipa )
+for ((x=0; x<NUM_NETWORKS; x++)); do
+        USED_IPS=$(/usr/bin/jq --argjson x $x -r '.[$x]."Used IPs"'                     $os_ipa)
+        TOTAL_IPS=$(/usr/bin/jq --argjson x $x -r '.[$x]."Total IPs"'                   $os_ipa)
+        NET_NAME=$(/usr/bin/jq --argjson x $x -r '.[$x]."Network Name"'                 $os_ipa)
+        NET_ID=$(/usr/bin/jq --argjson x $x -r '.[$x]."Network ID"'                     $os_ipa)
+
+        echo "used_ips,Network=$NET_NAME,netId=$NET_ID value=$USED_IPS"                 >> $os_influx_write
+        echo "total_ips,Network=$NET_NAME,netId=$NET_ID value=$TOTAL_IPS"               >> $os_influx_write
+done
+
+
 TOTAL_VCPU=$(/usr/bin/jq 	".vcpus"		$hyper_stats)
 TOTAL_VCPU_USED=$(/usr/bin/jq 	".vcpus_used"		$hyper_stats)
 TOTAL_MB=$(/usr/bin/jq 		".memory_mb"		$hyper_stats)
@@ -75,4 +90,5 @@ eval $POST
 rm $os_influx_write
 rm $hyper_list
 rm $hyper_stats
+rm $os_ipa
 rm $floating_stats
