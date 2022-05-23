@@ -60,7 +60,7 @@ for ((x=0; x<NUM_NETWORKS; x++)); do
 	# We have to clean up the net name
 	SUB="HA network tenant"
 	if [[ "$NET_NAME" == *"$SUB"* ]]; then
-		NET_NAME=$(echo $NET_NAME | /usr/bin/awk '{print $3}') 
+		NET_NAME=$(echo $NET_NAME | /usr/bin/awk '{print $4}') 
 	fi
 
         echo "used_ips,netId=$NET_ID,networkName=$NET_NAME,cloud=$CLOUDNAME value=$USED_IPS"                 >> $os_influx_write
