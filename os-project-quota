@@ -11,12 +11,14 @@ os_vol=$(mktemp /tmp/os-vol.XXXXXXXXX)
 os_q=$(mktemp /tmp/os-q.XXXXXXXXX)
 os_vs=$(mktemp /tmp/os-vs.XXXXXXXXX)
 os_is=$(mktemp /tmp/os-is.XXXXXXXXX)
+os_ipa=$(mktemp /tmp/os-ipa.XXXXXXXXX)
 
 /usr/local/bin/openstack --os-cloud admin limits show --project $1 --absolute -f json > $q_json
 /usr/local/bin/openstack --os-cloud admin volume list --project $1 -f json > $os_vol 
 /usr/local/bin/openstack --os-cloud admin quota show $1 -f json > $os_q
 /usr/local/bin/openstack --os-cloud admin volume snapshot list --project $1 -f json > $os_vs
 /usr/local/bin/openstack --os-cloud admin server list --project $1 -f json > $os_is
+/usr/local/bin/openstack --os-cloud admin ip availability list -f json > $os_ipa
 
 #jq '.[] | select(.Name=="totalCoresUsed")."Value" '
 
@@ -55,6 +57,18 @@ INSTANCES_SHUTDOWN=$(/usr/bin/jq '.[].Status == "SHUTDOWN"' | wc -l             
 TOTAL_VOLUMES_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				$os_vol)
 TOTAL_SNAPSHOTS_USED_GIGABYTES=$(/usr/bin/jq -s '.[] | map(.Size) | add //0 '				$os_vs)
 TOTAL_STORAGE_QUOTA_GIGABYTES=$(/usr/bin/jq '.gigabytes'  						$os_q)
+
+# check for free ip's in each network and then graph them
+NUM_NETWORKS=$(/usr/bin/jq "length" $os_ipa )
+for ((x=0; x<NUM_NETWORKS; x++)); do
+	USED_IPS=$(/usr/bin/jq --argjson x $x -r '.[$x]."Used IPs"'               	$os_ipa)
+	TOTAL_IPS=$(/usr/bin/jq --argjson x $x -r '.[$x]."Total IPs"'               	$os_ipa)
+	NET_NAME=$(/usr/bin/jq --argjson x $x -r '.[$x]."Network Name"'               	$os_ipa)
+	NET_ID=$(/usr/bin/jq --argjson x $x -r '.[$x]."Network ID"'               	$os_ipa)
+
+        echo "used_ips,Network=$NET_NAME,netId=$NET_ID value=$USED_IPS"             	>> $quota_write
+        echo "total_ips,Network=$NET_NAME,netId=$NET_ID value=$TOTAL_IPS"   		>> $quota_write
+done
 
 echo "maxServerMeta,Project=$1 value=$MAX_SERVER_META"      				>> $quota_write
 echo "maxTotalInstances,Project=$1 value=$MAX_TOTAL_INSTANCES"      			>> $quota_write
@@ -101,4 +115,5 @@ rm $os_q
 rm $os_vol
 rm $os_vs
 rm $os_is
+rm $os_ipa
 rm $quota_write
